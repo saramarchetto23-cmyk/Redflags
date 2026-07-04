@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoopTossico - Database Casi Umani</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+
+    <nav class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 px-4 py-3">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <span class="text-xl font-black tracking-wider text-pink-500">💣 LOOP_TOSSICO</span>
+            <div class="flex gap-1.5 sm:gap-2">
+                <button onclick="switchTab('feed')" id="btn-feed" class="px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-pink-600 text-white">Feed</button>
+                <button onclick="switchTab('form')" id="btn-form" class="px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-slate-800 hover:bg-slate-700">🗣️ Conquista</button>
+                <button onclick="switchTab('tossicita')" id="btn-tossicita" class="px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-slate-800 hover:bg-slate-700">🧪 I Miei Difetti</button>
+                <button onclick="switchTab('trends')" id="btn-trends" class="px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-slate-800 hover:bg-slate-700">📊 Trend</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto p-4 md:py-8">
+
+        <section id="tab-feed" class="block space-y-4">
+            <h2 class="text-2xl font-bold mb-4 text-sky-400">Le Conquiste del Gruppo (Feed Anonimo)</h2>
+            <div id="feed-container" class="space-y-4">
+                <p class="text-slate-500 text-center py-8">Caricamento disastri in corso...</p>
+            </div>
+        </section>
+
+        <section id="tab-form" class="hidden max-w-lg mx-auto bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-xl">
+            <h2 class="text-xl font-bold mb-4 text-pink-500">Registra un Nuovo Caso Umano</h2>
+            <form id="conquista-form" onsubmit="salvaConquista(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Chi Sei? (Verrà nascosto nel feed pubblico)</label>
+                    <select id="utente" required class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white">
+                        <option value="Sara">Sara</option>
+                        <option value="Piè">Piè</option>
+                        <option value="Edo">Edo</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Anno dell'evento</label>
+                    <input type="number" id="anno" required min="2015" max="2026" value="2026" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Descrizione / Aneddoto Peculiare</label>
+                    <textarea id="descrizione" required rows="3" placeholder="Es: Sembrava normale finché non ha ammesso di calcolare l'ascendente astrologico dei miei gatti..." class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm"></textarea>
+                </div>
+                
+                <div class="border-t border-slate-800 pt-3">
+                    <h3 class="text-sm font-bold text-sky-400 mb-2">Sezione Psicopatologie</h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="col-span-2">
+                            <input type="text" id="psico_tipo" placeholder="Tipo (es: Narcisista Covert, Bugiardo seriale)" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-white text-sm" required>
+                        </div>
+                        <div>
+                            <select id="psico_entita" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-white text-sm">
+                                <option value="1">Grado 1</option>
+                                <option value="2">Grado 2</option>
+                                <option value="3">Grado 3</option>
+                                <option value="4">Grado 4</option>
+                                <option value="5">Grado 5 (Boss)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Red Flags & Cose Peculiari (Separate da virgola)</label>
+                    <input type="text" id="flags" placeholder="Es: taccagno, parla della ex, fanatico, ghostatore" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm">
+                </div>
+                <button type="submit" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 rounded transition shadow-lg shadow-pink-900/20">Lancia nel Database Anonimo 🚀</button>
+            </form>
+        </section>
+
+        <section id="tab-tossicita" class="hidden max-w-lg mx-auto bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-xl">
+            <h2 class="text-xl font-bold mb-2 text-amber-500">🧪 Configura il Tuo Profilo Tossico</h2>
+            <p class="text-xs text-slate-400 mb-4">Inserisci le tue personali red flag o i tuoi comportamenti ricorrenti. Serviranno a calcolare la compatibilità del danno con i tuoi ex.</p>
+            <form id="tossicita-form" onsubmit="salvaTrattiTossici(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Seleziona Te Stesso</label>
+                    <select id="tossico-utente" onchange="caricaTrattiUtenteAttuale()" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white">
+                        <option value="Sara">Sara</option>
+                        <option value="Piè">Piè</option>
+                        <option value="Edo">Edo</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1">I Tuoi Tratti Tossici / Vulnerabilità (Separati da virgola)</label>
+                    <textarea id="tratti-personali-input" rows="4" placeholder="Es: crocerossino, gelosia, controllo, dipendenza affettiva, ghosting, attrazione per casi umani" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 rounded transition shadow-lg">Aggiorna la mia Fedina Psicologica 📝</button>
+            </form>
+        </section>
+
+        <section id="tab-trends" class="hidden space-y-6">
+            <div class="flex justify-between items-center bg-slate-900 p-4 border border-slate-800 rounded-xl">
+                <h2 class="text-xl font-bold text-amber-400">Analisi Statistica & Loop Tossici</h2>
+                <select id="trend-utente" onchange="renderTrends()" class="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-white">
+                    <option value="Sara">Sara</option>
+                    <option value="Piè">Piè</option>
+                    <option value="Edo">Edo</option>
+                </select>
+            </div>
+            
+            <div id="trends-stats-container" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+            
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-3">
+                <h3 class="text-md font-bold text-purple-400 flex items-center gap-1.5">⚡ L'Incrocio Fatale (Match del Disagio)</h3>
+                <div id="match-tossici-container" class="text-sm space-y-2"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "
