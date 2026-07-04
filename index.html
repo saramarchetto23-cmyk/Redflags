@@ -116,4 +116,344 @@
     </main>
 
     <script type="module">
-        import { initializeApp } from "
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Configurazione Firebase dal tuo progetto principale
+        const firebaseConfig = {
+            apiKey: "AIzaSyDv2wQMT26NA25PXcIu5jwHXbeoqMhhN2o",
+            authDomain: "redflag-875ff.firebaseapp.com",
+            projectId: "redflag-875ff",
+            storageBucket: "redflag-875ff.firebasestorage.app",
+            messagingSenderId: "481191055799",
+            appId: "1:481191055799:web:22b1cee8b50f827333d832",
+            measurementId: "G-RHQC5TJB1M"
+        };
+
+        // Inizializzazione Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Funzioni globali assegnate alla finestra per l'uso negli attributi HTML onclick/onsubmit
+        window.switchTab = function(tabName) {
+            document.getElementById('tab-feed').classList.replace('block', 'hidden');
+            document.getElementById('tab-feed').classList.add('hidden');
+            document.getElementById('tab-form').classList.add('hidden');
+            document.getElementById('tab-tossicita').classList.add('hidden');
+            document.getElementById('tab-trends').classList.add('hidden');
+
+            document.getElementById('btn-feed').className = "px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-slate-800 text-slate-300 hover:bg-slate-700";
+            document.getElementById('btn-form').className = "px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-slate-800 text-slate-300 hover:bg-slate-700";
+            document.getElementById('btn-tossicita').className = "px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-slate-800 text-slate-300 hover:bg-slate-700";
+            document.getElementById('btn-trends').className = "px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-slate-800 text-slate-300 hover:bg-slate-700";
+
+            const currentTab = document.getElementById('tab-' + tabName);
+            if(currentTab) {
+                currentTab.classList.remove('hidden');
+                currentTab.classList.add('block');
+            }
+            
+            const currentBtn = document.getElementById('btn-' + tabName);
+            if(currentBtn) {
+                currentBtn.className = tabName === 'tossicita' 
+                    ? "px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-amber-600 text-white"
+                    : "px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-pink-600 text-white";
+            }
+
+            if (tabName === 'feed') renderFeed();
+            if (tabName === 'tossicita') caricaTrattiUtenteAttuale();
+            if (tabName === 'trends') renderTrends();
+        };
+
+        // Salva una nuova conquista all'interno della collezione Firestore
+        window.salvaConquista = async function(e) {
+            e.preventDefault();
+            try {
+                const nuovaConquista = {
+                    utente: document.getElementById('utente').value,
+                    anno: parseInt(document.getElementById('anno').value),
+                    descrizione: document.getElementById('descrizione').value,
+                    psico_tipo: document.getElementById('psico_tipo').value,
+                    psico_entita: parseInt(document.getElementById('psico_entita').value),
+                    flags: document.getElementById('flags').value.split(',').map(f => f.trim().toLowerCase()).filter(f => f.length > 0),
+                    voti: [],
+                    creato_il: new Date().toISOString()
+                };
+
+                await addDoc(collection(db, "conquiste"), nuovaConquista);
+                document.getElementById('conquista-form').reset();
+                window.switchTab('feed');
+            } catch (error) {
+                console.error("Errore nel salvataggio della conquista: ", error);
+                alert("Errore durante l'invio dei dati.");
+            }
+        };
+
+        // Permette la votazione anonima da 1 a 5 stelline/bombe
+        window.vota = async function(docId, punteggio) {
+            try {
+                const docRef = doc(db, "conquiste", docId);
+                await updateDoc(docRef, {
+                    voti: arrayUnion(punteggio)
+                });
+                renderFeed();
+            } catch (error) {
+                console.error("Errore durante la votazione: ", error);
+            }
+        };
+
+        // Salva i tratti tossici personali del membro del gruppo
+        window.salvaTrattiTossici = async function(e) {
+            e.preventDefault();
+            const utente = document.getElementById('tossico-utente').value;
+            const inputVal = document.getElementById('tratti-personali-input').value;
+            const tratti = inputVal.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);
+
+            try {
+                // Recupera l'eventuale documento esistente per aggiornarlo, altrimenti ne crea uno nuovo
+                const querySnapshot = await getDocs(collection(db, "tratti_personali"));
+                let docEsistenteId = null;
+                
+                querySnapshot.forEach((doc) => {
+                    if (doc.data().utente === utente) docEsistenteId = doc.id;
+                });
+
+                if (docEsistenteId) {
+                    await updateDoc(doc(db, "tratti_personali", docEsistenteId), { tratti: tratti });
+                } else {
+                    await addDoc(collection(db, "tratti_personali"), { utente: utente, tratti: tratti });
+                }
+                alert("Profilo Tossico aggiornato con successo!");
+                window.switchTab('feed');
+            } catch (error) {
+                console.error("Errore nel salvataggio dei tratti tossici: ", error);
+            }
+        };
+
+        // Recupera i tratti dell'utente selezionato nel pannello di inserimento
+        window.caricaTrattiUtenteAttuale = async function() {
+            const utente = document.getElementById('tossico-utente').value;
+            const textarea = document.getElementById('tratti-personali-input');
+            textarea.value = "";
+            
+            try {
+                const querySnapshot = await getDocs(collection(db, "tratti_personali"));
+                querySnapshot.forEach((doc) => {
+                    if (doc.data().utente === utente) {
+                        textarea.value = doc.data().tratti.join(', ');
+                    }
+                });
+            } catch (error) {
+                console.error("Errore nel caricamento dei tratti personali: ", error);
+            }
+        };
+
+        // Rendering del feed principale delle conquiste (Modalità completamente Anonima)
+        window.renderFeed = async function() {
+            const container = document.getElementById('feed-container');
+            container.innerHTML = `<p class="text-slate-500 text-center py-8">Aggiornamento elenco...</p>`;
+            
+            try {
+                const querySnapshot = await getDocs(collection(db, "conquiste"));
+                let elenco = [];
+                querySnapshot.forEach((doc) => {
+                    elenco.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Ordina per data di creazione decrescente (le più recenti in alto)
+                elenco.sort((a, b) => new Date(b.creato_il) - new Date(a.creato_il));
+
+                container.innerHTML = "";
+                if (elenco.length === 0) {
+                    container.innerHTML = `<p class="text-slate-500 text-center py-8">Nessun disastro registrato finora. Tutto calmo sul fronte.</p>`;
+                    return;
+                }
+
+                elenco.forEach(c => {
+                    const votiArray = c.voti || [];
+                    const somma = votiArray.reduce((x, y) => x + y, 0);
+                    const media = votiArray.length > 0 ? (somma / votiArray.length).toFixed(1) : "N/D";
+                    const flagsHtml = (c.flags || []).map(f => `<span class="bg-slate-800 text-pink-400 border border-pink-900/40 text-xs px-2 py-0.5 rounded-full">🚩 ${f}</span>`).join(" ");
+
+                    const card = document.createElement('div');
+                    card.className = "bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm hover:border-slate-700 transition";
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start gap-4 mb-2">
+                            <span class="bg-blue-900/40 text-blue-400 border border-blue-800/40 text-xs font-bold px-2 py-1 rounded">Anno di Conquista: ${c.anno}</span>
+                            <div class="text-right">
+                                <span class="text-xs text-slate-400 block font-medium">Bomba Scampata</span>
+                                <span class="text-lg font-black text-amber-400">💣 ${media} <span class="text-xs font-normal text-slate-500">(${votiArray.length} voti)</span></span>
+                            </div>
+                        </div>
+                        <p class="text-slate-200 mb-4 text-sm font-medium leading-relaxed italic">"${c.descrizione}"</p>
+                        <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80 mb-4 text-xs">
+                            <span class="text-slate-400 font-bold block mb-1">🧠 STRUTTURA PSICOPATOLOGICA RILEVATA:</span>
+                            <span class="text-red-400 font-medium">${c.psico_tipo}</span> &bull; <span class="text-slate-300">Entità: <strong class="text-pink-500">${c.psico_entita}/5</strong></span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 mb-4">${flagsHtml}</div>
+                        <div class="border-t border-slate-800/80 pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-xs font-semibold text-slate-400">Esprimi il tuo giudizio (1 = Danno Minimo, 5 = Scampato Per Miracolo):</span>
+                            <div class="flex gap-1">
+                                ${[1, 2, 3, 4, 5].map(n => `<button onclick="vota('${c.id}', ${n})" class="w-7 h-7 bg-slate-800 hover:bg-pink-600 rounded flex items-center justify-center text-xs font-bold transition text-white">${n}</button>`).join("")}
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                console.error("Errore durante il recupero dei dati: ", error);
+            }
+        };
+
+        // Calcolo e rendering delle metriche e dei match sui tratti tossici personali
+        window.renderTrends = async function() {
+            const utenteTarget = document.getElementById('trend-utente').value;
+            const statsContainer = document.getElementById('trends-stats-container');
+            const matchContainer = document.getElementById('match-tossici-container');
+            
+            statsContainer.innerHTML = "";
+            matchContainer.innerHTML = "";
+
+            try {
+                // 1. Recupero tutte le conquiste e filtro per l'utente selezionato
+                const conquisteSnapshot = await getDocs(collection(db, "conquiste"));
+                let tutteConquiste = [];
+                conquisteSnapshot.forEach(doc => tutteConquiste.push(doc.data()));
+                
+                const mieConquiste = tutteConquiste.filter(c => c.utente === utenteTarget);
+
+                if (mieConquiste.length === 0) {
+                    statsContainer.className = "block text-center py-6 text-slate-500";
+                    statsContainer.innerHTML = `Nessun dato registrato per ${utenteTarget}. La fedina è ancora pulita.`;
+                    matchContainer.innerHTML = `<p class="text-slate-500 italic">Inserisci almeno una conquista per elaborare i pattern relazionali.</p>`;
+                    return;
+                }
+                statsContainer.className = "grid grid-cols-1 md:grid-cols-3 gap-4";
+
+                // Calcolo delle statistiche fondamentali
+                const totaleConquiste = mieConquiste.length;
+                let totaleVotiRicevuti = [];
+                let peggiorConquista = null;
+                let maxMediaPunteggio = -1;
+
+                mieConquiste.forEach(c => {
+                    const voti = c.voti || [];
+                    totaleVotiRicevuti = totaleVotiRicevuti.concat(voti);
+                    
+                    if (voti.length > 0) {
+                        const mediaLocale = voti.reduce((x, y) => x + y, 0) / voti.length;
+                        if (mediaLocale > maxMediaPunteggio) {
+                            maxMediaPunteggio = mediaLocale;
+                            peggiorConquista = c;
+                        }
+                    }
+                });
+
+                const indiceCasoUmano = totaleVotiRicevuti.length > 0 
+                    ? (totaleVotiRicevuti.reduce((x, y) => x + y, 0) / totaleVotiRicevuti.length).toFixed(2) 
+                    : "N/D";
+
+                // Calcolo dell'anno di picco dell'attività (Golden Age del Disagio)
+                const mappaAnni = {};
+                mieConquiste.forEach(c => { mappaAnni[c.anno] = (mappaAnni[c.anno] || 0) + 1; });
+                let piccoAnno = "N/D";
+                let conteggioPicco = 0;
+                for (let anno in mappaAnni) {
+                    if (mappaAnni[anno] > conteggioPicco) {
+                        conteggioPicco = mappaAnni[anno];
+                        piccoAnno = anno;
+                    }
+                }
+
+                // Renderizzazione dei 3 box contatori principali
+                statsContainer.innerHTML = `
+                    <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl text-center">
+                        <span class="text-xs uppercase font-bold tracking-wider text-slate-400 block mb-1">Volume Conquiste</span>
+                        <span class="text-4xl font-black text-pink-500">${totaleConquiste}</span>
+                        <p class="text-xs text-slate-500 mt-2">Casi inseriti nel database storico</p>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl text-center">
+                        <span class="text-xs uppercase font-bold tracking-wider text-slate-400 block mb-1">Indice Caso Umano Rilevato</span>
+                        <span class="text-4xl font-black text-amber-400">💣 ${indiceCasoUmano}</span>
+                        <p class="text-xs text-slate-500 mt-2">Valutazione media assegnata dal gruppo degli amici</p>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl text-center">
+                        <span class="text-xs uppercase font-bold tracking-wider text-slate-400 block mb-1">Golden Age del Disagio</span>
+                        <span class="text-4xl font-black text-sky-400">${piccoAnno}</span>
+                        <p class="text-xs text-slate-500 mt-2">Anno di massima attività con ben ${conteggioPicco} soggetti</p>
+                    </div>
+                    ${peggiorConquista ? `
+                    <div class="col-span-1 md:col-span-3 bg-red-950/20 border border-red-900/30 p-4 rounded-xl">
+                        <span class="text-xs font-bold uppercase tracking-wider text-red-400 block mb-1">👑 Il "Boss Finale" di ${utenteTarget}:</span>
+                        <p class="text-sm italic text-slate-300">"${peggiorConquista.descrizione}"</p>
+                        <span class="text-xs text-amber-400 mt-2 block font-semibold">Punteggio di Allontanamento Coatto: 💣 ${maxMediaPunteggio.toFixed(1)}/5</span>
+                    </div>
+                    ` : ''}
+                `;
+
+                // 2. Logica di Incrocio e Match dei Tratti Tossici Personali
+                const trattiSnapshot = await getDocs(collection(db, "tratti_personali"));
+                let mieiTratti = [];
+                trattiSnapshot.forEach(doc => {
+                    if (doc.data().utente === utenteTarget) mieiTratti = doc.data().tratti || [];
+                });
+
+                if (mieiTratti.length === 0) {
+                    matchContainer.innerHTML = `<p class="text-slate-400 italic">Non hai ancora inserito i tuoi difetti nella scheda "I Miei Difetti". Configurali per sbloccare l'analisi dei pattern emotivi.</p>`;
+                    return;
+                }
+
+                let corrispondenzeRilevate = [];
+
+                mieConquiste.forEach(conq => {
+                    const testoCompletoConquista = `${conq.descrizione} ${conq.psico_tipo} ${(conq.flags || []).join(' ')}`.toLowerCase();
+                    
+                    mieiTratti.forEach(tratto => {
+                        let haMatchato = false;
+                        
+                        // Controllo testuale diretto
+                        if (testoCompletoConquista.includes(tratto)) {
+                            haMatchato = true;
+                        }
+                        // Controllo logico avanzato (es: crocerossino attira narcisista/manipolatore)
+                        if (tratto === "crocerossino" && (testoCompletoConquista.includes("narcisista") || testoCompletoConquista.includes("manipolatore") || testoCompletoConquista.includes("delirio"))) {
+                            haMatchato = true;
+                        }
+                        if (tratto === "attrazione per casi umani" && conq.psico_entita >= 4) {
+                            haMatchato = true;
+                        }
+
+                        if (haMatchato) {
+                            corrispondenzeRilevate.push(`Nel <strong>${conq.anno}</strong>, il tuo tratto <span class="text-amber-400 font-semibold">"${tratto}"</span> ha incrociato una conquista classificata come <span class="text-red-400 font-semibold">"${conq.psico_tipo}"</span>.`);
+                        }
+                    });
+                });
+
+                if (corrispondenzeRilevate.length === 0) {
+                    matchContainer.innerHTML = `<p class="text-emerald-400 font-medium">✔️ Nessun loop tossico evidente rilevato nei testi analizzati. Sorprendente.</p>`;
+                } else {
+                    const listaUl = document.createElement('ul');
+                    listaUl.className = "list-disc pl-5 space-y-1.5 text-slate-300 text-xs sm:text-sm";
+                    corrispondenzeRilevate.forEach(m => {
+                        const li = document.createElement('li');
+                        li.innerHTML = m;
+                        listaUl.appendChild(li);
+                    });
+                    matchContainer.appendChild(listaUl);
+                    
+                    const avviso = document.createElement('p');
+                    avviso.className = "text-xs text-purple-400 font-semibold pt-2 border-t border-slate-800 mt-2 italic animate-pulse";
+                    avviso.innerText = "⚠️ Diagnosi: Smetti di tentare di salvare le persone o di fare autogol emotivi.";
+                    matchContainer.appendChild(avviso);
+                }
+
+            } catch (error) {
+                console.error("Errore nell'elaborazione delle statistiche: ", error);
+            }
+        };
+
+        // Caricamento iniziale della visualizzazione feed all'apertura del sito
+        renderFeed();
+    </script>
+</body>
+</html>
